@@ -263,29 +263,22 @@
     cursor: pointer;
 }
 
-/* 메시지 스타일 */
-.message {
-    position: relative;
-    border-color: var(--chat-border-color);
-}
-
-.message::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    pointer-events: none;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
-    border-radius: inherit;
-}
-
 .message-header {
     display: flex;
     align-items: center;
     padding: 5px;
     background: rgba(255, 255, 255, 0.05);
+}
+
+body.system-pf2e .chat-message .message-header.with-image,
+.chat-message .message-header.with-image {
+    display: grid;
+}
+
+body.system-pf2e .chat-message .message-header.with-image .chat-portrait-container,
+.chat-message .message-header.with-image .chat-portrait-container {
+    grid-area: img;
+    margin-right: 0;
 }
 
 .chat-portrait-container img {
@@ -807,10 +800,10 @@
 /* 모듈의 처리를 거친 메시지에만 스타일 적용 */
 .message.ccs-custom-border, 
 .chat-message.ccs-custom-border {
-    position: relative;
     border-style: solid !important;
     border-width: 1px !important;
     border-color: var(--ccs-chat-border-color, #000) !important;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
 }
 
 /* 다른 모듈의 버튼이나 내부 요소가 깨지는 걸 방지하기 위해 

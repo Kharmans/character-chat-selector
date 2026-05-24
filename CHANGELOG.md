@@ -1,3 +1,9 @@
+## 📢 Update: Character Chat Selector v3.4.9
+
+### 🐛 Bug Fixes
+- Fixed a PF2E chat header layout conflict where the module's header styling could override PF2E's grid layout, causing the message author line to appear beside the character name.
+- Fixed a CoC7E compatibility issue where the Fight Back weapon dropdown could appear at the top of the chat log because chat message positioning from this module interfered with CoC7E's dropdown placement.
+
 ## 📢 Update: Character Chat Selector v3.4.8
 
 ### 🐛 Bug Fixes

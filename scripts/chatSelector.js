@@ -956,6 +956,7 @@ export class ChatSelector {
             const selectors = [
                 'a.avatar:not(.chat-portrait-container)',
                 '.portrait.token:not(.chat-portrait-container)',
+                '.portrait.actor-image:not(.chat-portrait-container)',
                 '.message-token:not(.chat-portrait-container)',
                 '.message-portrait:not(.chat-portrait-container)'
             ];
