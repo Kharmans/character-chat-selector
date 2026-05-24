@@ -32,6 +32,21 @@ export class ChatSelector {
     // 원본 함수 저장용 변수
     static originalProcessMessage = null;
 
+    static _normalizeChatInput(message) {
+        if (typeof message !== 'string') return '';
+        const trimmed = message.trim();
+        if (!trimmed.includes('<')) return trimmed;
+
+        const template = document.createElement('template');
+        template.innerHTML = trimmed;
+        if (template.content.childElementCount === 1) {
+            const element = template.content.firstElementChild;
+            if (element?.tagName === 'P') return element.innerHTML.replace(/<br\s*\/?>/gi, '\n').trim();
+        }
+
+        return trimmed.replace(/^<p>|<\/p>$/gi, '').trim();
+    }
+
     static initialize() {
         this.registerSettings();
 
@@ -64,11 +79,12 @@ export class ChatSelector {
         });
 
         Hooks.on("chatMessage", (chatLog, messageText, chatData) => {
-            if (messageText.startsWith("/c") || messageText.startsWith("!")) {
-                const isSlashCommand = messageText.startsWith("/c");
+            const commandText = this._normalizeChatInput(messageText);
+            if (commandText.startsWith("/c") || commandText.startsWith("!")) {
+                const isSlashCommand = commandText.startsWith("/c");
                 const searchTerm = isSlashCommand ?
-                    messageText.slice(2).trim() :
-                    messageText.slice(1).trim();
+                    commandText.slice(2).trim() :
+                    commandText.slice(1).trim();
 
                 console.log(`ChatSelector | Command detected: ${searchTerm}`); // DEBUG
 
@@ -178,15 +194,16 @@ export class ChatSelector {
         }
 
         // 래퍼 함수 정의
-        ui.chat.processMessage = async function (message) {
+        ui.chat.processMessage = async function (message, options = {}) {
             const CHAT_STYLES = CONST.CHAT_MESSAGE_STYLES;
+            const commandText = ChatSelector._normalizeChatInput(message);
 
-            if (message.startsWith("/c") || message.startsWith("!")) {
-                return originalFunc.call(this, message);
+            if (commandText.startsWith("/c") || commandText.startsWith("!")) {
+                return originalFunc.call(this, message, options);
             }
 
-            if (message.startsWith("/as ")) {
-                const asContent = message.slice(4).trim();
+            if (commandText.startsWith("/as ")) {
+                const asContent = commandText.slice(4).trim();
                 if (!asContent) {
                     ChatSelector.tempCharacter = null;
                     ui.notifications.info(game.i18n.localize("CHATSELECTOR.Info.TempCharacterDisabled"));
@@ -213,8 +230,8 @@ export class ChatSelector {
 
             if (ChatSelector.tempCharacter) {
                 const tempSpeaker = { alias: ChatSelector.tempCharacter.name };
-                if (!message.startsWith('/')) {
-                    const processedMessage = RubyTextHandler.processMessage(message);
+                if (!commandText.startsWith('/')) {
+                    const processedMessage = RubyTextHandler.processMessage(commandText);
                     return ChatMessage.create({
                         user: game.user.id,
                         speaker: tempSpeaker,
@@ -222,9 +239,9 @@ export class ChatSelector {
                         style: CHAT_STYLES.IC
                     });
                 }
-                if (message.startsWith('/emote ') || message.startsWith('/em ') || message.startsWith('/me ')) {
-                    const cmdLength = message.startsWith('/emote ') ? 7 : 4;
-                    const emoteText = message.slice(cmdLength);
+                if (commandText.startsWith('/emote ') || commandText.startsWith('/em ') || commandText.startsWith('/me ')) {
+                    const cmdLength = commandText.startsWith('/emote ') ? 7 : 4;
+                    const emoteText = commandText.slice(cmdLength);
                     return ChatMessage.create({
                         user: game.user.id,
                         speaker: tempSpeaker,
@@ -238,9 +255,9 @@ export class ChatSelector {
             if (!actorId) {
                 const speaker = ChatMessage.getSpeaker();
 
-                if (message.startsWith('/')) {
-                    if (message.startsWith('/ooc ')) {
-                        const oocText = message.slice(5);
+                if (commandText.startsWith('/')) {
+                    if (commandText.startsWith('/ooc ')) {
+                        const oocText = commandText.slice(5);
                         return ChatMessage.create({
                             user: game.user.id,
                             speaker: speaker,
@@ -248,8 +265,8 @@ export class ChatSelector {
                             style: CHAT_STYLES.OOC
                         });
                     }
-                    if (message.startsWith('/w ') || message.startsWith('/whisper ')) {
-                        const match = message.match(/^\/(?:w|whisper)\s+(?:["'\[](.*?)["'\]]|(\S+))\s+(.*)/);
+                    if (commandText.startsWith('/w ') || commandText.startsWith('/whisper ')) {
+                        const match = commandText.match(/^\/(?:w|whisper)\s+(?:["'\[](.*?)["'\]]|(\S+))\s+(.*)/);
                         if (match) {
                             const targetName = match[1] || match[2];
                             const whisperText = match[3];
@@ -264,10 +281,10 @@ export class ChatSelector {
                                 });
                             }
                         }
-                        return originalFunc.call(this, message);
+                        return originalFunc.call(this, message, options);
                     }
-                    if (message.startsWith('/gm ')) {
-                        const gmText = message.slice(4);
+                    if (commandText.startsWith('/gm ')) {
+                        const gmText = commandText.slice(4);
                         return ChatMessage.create({
                             user: game.user.id,
                             speaker: speaker,
@@ -276,9 +293,9 @@ export class ChatSelector {
                             style: CHAT_STYLES.WHISPER
                         });
                     }
-                    if (message.startsWith('/emote ') || message.startsWith('/em ') || message.startsWith('/me ')) {
-                        const cmdLength = message.startsWith('/emote ') ? 7 : 4;
-                        const emoteText = message.slice(cmdLength);
+                    if (commandText.startsWith('/emote ') || commandText.startsWith('/em ') || commandText.startsWith('/me ')) {
+                        const cmdLength = commandText.startsWith('/emote ') ? 7 : 4;
+                        const emoteText = commandText.slice(cmdLength);
                         return ChatMessage.create({
                             user: game.user.id,
                             speaker: speaker,
@@ -286,10 +303,10 @@ export class ChatSelector {
                             style: CHAT_STYLES.EMOTE
                         });
                     }
-                    return originalFunc.call(this, message);
+                    return originalFunc.call(this, message, options);
                 }
 
-                const processedMessage = RubyTextHandler.processMessage(message);
+                const processedMessage = RubyTextHandler.processMessage(commandText);
                 return ChatMessage.create({
                     user: game.user.id,
                     speaker: speaker,
@@ -329,8 +346,8 @@ export class ChatSelector {
                 alias: (speakAsToken && activeToken) ? activeToken.name : actor.name
             };
 
-            if (message.startsWith('/ooc ')) {
-                const oocText = message.slice(5);
+            if (commandText.startsWith('/ooc ')) {
+                const oocText = commandText.slice(5);
                 return ChatMessage.create({
                     user: game.user.id,
                     content: RubyTextHandler.processMessage(oocText),
@@ -338,13 +355,13 @@ export class ChatSelector {
                 });
             }
 
-            if (message.startsWith('/w ') || message.startsWith('/whisper ')) {
-                const match = message.match(/^\/(?:w|whisper)\s+(?:["'\[](.*?)["'\]]|(\S+))\s+(.*)/);
+            if (commandText.startsWith('/w ') || commandText.startsWith('/whisper ')) {
+                const match = commandText.match(/^\/(?:w|whisper)\s+(?:["'\[](.*?)["'\]]|(\S+))\s+(.*)/);
                 if (match) {
                     const targetName = match[1] || match[2];
                     const whisperText = match[3];
                     const targets = game.users.filter(u => u.name === targetName);
-                    if (targets.length === 0) return originalFunc.call(this, message);
+                    if (targets.length === 0) return originalFunc.call(this, message, { ...options, speaker });
 
                     return ChatMessage.create({
                         user: game.user.id,
@@ -354,11 +371,11 @@ export class ChatSelector {
                         style: CHAT_STYLES.WHISPER
                     });
                 }
-                return originalFunc.call(this, message);
+                return originalFunc.call(this, message, { ...options, speaker });
             }
 
-            if (message.startsWith('/gm ')) {
-                const gmText = message.slice(4);
+            if (commandText.startsWith('/gm ')) {
+                const gmText = commandText.slice(4);
                 return ChatMessage.create({
                     user: game.user.id,
                     speaker: speaker,
@@ -368,9 +385,9 @@ export class ChatSelector {
                 });
             }
 
-            if (message.startsWith('/emote ') || message.startsWith('/em ') || message.startsWith('/me ')) {
-                const cmdLength = message.startsWith('/emote ') ? 7 : 4;
-                const emoteText = message.slice(cmdLength);
+            if (commandText.startsWith('/emote ') || commandText.startsWith('/em ') || commandText.startsWith('/me ')) {
+                const cmdLength = commandText.startsWith('/emote ') ? 7 : 4;
+                const emoteText = commandText.slice(cmdLength);
                 const processedEmoteText = RubyTextHandler.processMessage(emoteText);
 
                 return ChatMessage.create({
@@ -381,11 +398,11 @@ export class ChatSelector {
                 }, { chatBubble: true });
             }
 
-            if (message.startsWith('/')) {
-                return originalFunc.call(this, message);
+            if (commandText.startsWith('/')) {
+                return originalFunc.call(this, message, { ...options, speaker });
             }
 
-            const processedMessage = RubyTextHandler.processMessage(message);
+            const processedMessage = RubyTextHandler.processMessage(commandText);
 
             return ChatMessage.create({
                 user: game.user.id,

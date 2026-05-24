@@ -1,3 +1,8 @@
+## 📢 Update: Character Chat Selector v3.4.10
+
+### 🐛 Bug Fixes
+- Fixed V14 chat commands (`/r`, `/gm`, `/me`, `/w`, and the module's `/c` actor switch) being treated as plain chat text. V14 wraps chat input in `<p>...</p>` before reaching the chat processor, so the module's command override no longer matched against the literal slash. Input is now normalized before command detection.
+
 ## 📢 Update: Character Chat Selector v3.4.9
 
 ### 🐛 Bug Fixes
