@@ -1,3 +1,13 @@
+## 📢 Update: Character Chat Selector v3.4.12
+
+### 🐛 Bug Fixes
+- Fixed `/as` with no name failing to disable temporary NPC mode after chat input normalization removed the trailing space.
+
+## 📢 Update: Character Chat Selector v3.4.11
+
+### 🐛 Bug Fixes
+- Fixed `/em`, `/emote`, and `/me` messages placing the actor name on its own line when Markdown created multiple paragraphs from blank lines.
+
 ## 📢 Update: Character Chat Selector v3.4.10
 
 ### 🐛 Bug Fixes

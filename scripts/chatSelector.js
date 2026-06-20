@@ -47,6 +47,30 @@ export class ChatSelector {
         return trimmed.replace(/^<p>|<\/p>$/gi, '').trim();
     }
 
+    static _buildEmoteContent(alias, emoteText) {
+        const processedText = RubyTextHandler.processMessage(emoteText);
+        const aliasText = String(alias ?? '').trim();
+        if (!aliasText) return processedText;
+        if (typeof processedText !== 'string' || !processedText.trimStart().startsWith('<')) {
+            return `${aliasText} ${processedText}`;
+        }
+
+        const template = document.createElement('template');
+        template.innerHTML = processedText;
+        const firstElement = template.content.firstElementChild;
+        const prefixSelector = 'p, li, h1, h2, h3, h4, h5, h6, pre, td, th, figcaption';
+        const prefixTarget = firstElement?.matches(prefixSelector) ?
+            firstElement :
+            firstElement?.querySelector(prefixSelector);
+
+        if (!prefixTarget) {
+            return `${aliasText} ${processedText}`;
+        }
+
+        prefixTarget.prepend(document.createTextNode(`${aliasText} `));
+        return template.innerHTML;
+    }
+
     static initialize() {
         this.registerSettings();
 
@@ -202,8 +226,8 @@ export class ChatSelector {
                 return originalFunc.call(this, message, options);
             }
 
-            if (commandText.startsWith("/as ")) {
-                const asContent = commandText.slice(4).trim();
+            if (commandText === "/as" || commandText.startsWith("/as ")) {
+                const asContent = commandText.slice(3).trim();
                 if (!asContent) {
                     ChatSelector.tempCharacter = null;
                     ui.notifications.info(game.i18n.localize("CHATSELECTOR.Info.TempCharacterDisabled"));
@@ -245,7 +269,7 @@ export class ChatSelector {
                     return ChatMessage.create({
                         user: game.user.id,
                         speaker: tempSpeaker,
-                        content: `${tempSpeaker.alias} ${RubyTextHandler.processMessage(emoteText)}`,
+                        content: ChatSelector._buildEmoteContent(tempSpeaker.alias, emoteText),
                         style: CHAT_STYLES.EMOTE
                     }, { chatBubble: true }); 
                 }
@@ -299,7 +323,7 @@ export class ChatSelector {
                         return ChatMessage.create({
                             user: game.user.id,
                             speaker: speaker,
-                            content: `${speaker.alias} ${RubyTextHandler.processMessage(emoteText)}`,
+                            content: ChatSelector._buildEmoteContent(speaker.alias, emoteText),
                             style: CHAT_STYLES.EMOTE
                         });
                     }
@@ -388,12 +412,11 @@ export class ChatSelector {
             if (commandText.startsWith('/emote ') || commandText.startsWith('/em ') || commandText.startsWith('/me ')) {
                 const cmdLength = commandText.startsWith('/emote ') ? 7 : 4;
                 const emoteText = commandText.slice(cmdLength);
-                const processedEmoteText = RubyTextHandler.processMessage(emoteText);
 
                 return ChatMessage.create({
                     user: game.user.id,
                     speaker: speaker,
-                    content: `${speaker.alias} ${processedEmoteText}`,
+                    content: ChatSelector._buildEmoteContent(speaker.alias, emoteText),
                     style: CHAT_STYLES.EMOTE
                 }, { chatBubble: true });
             }
