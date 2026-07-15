@@ -113,6 +113,65 @@ export class ChatOptimizer {
             return this.renderingQueue.add(this._ccsPostOne.bind(this), message, options);
         };
 
+        ChatLog.prototype._ccsKeepBottomPinned = function (messageElement) {
+            const scroll = this.element?.querySelector(".chat-scroll");
+            if (!scroll) {
+                this.scrollBottom({ waitImages: true });
+                return;
+            }
+
+            const isDndCard = game.system.id === "dnd5e" ||
+                messageElement?.classList?.contains("dnd5e2") ||
+                messageElement?.querySelector?.(".dnd5e2, .card-tray, .effects-tray, .targets-tray");
+            if (!isDndCard) {
+                this.scrollBottom({ waitImages: true });
+                return;
+            }
+
+            const timeouts = [];
+            let cancelled = false;
+            let observer = null;
+            const stopEvents = [
+                [scroll, "wheel"],
+                [scroll, "touchmove"],
+                [scroll, "pointerdown"]
+            ];
+            const scrollKeys = new Set(["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "]);
+
+            const keepPinned = () => {
+                if (cancelled || !this.rendered) return;
+                scroll.scrollTop = scroll.scrollHeight;
+                this._ccsOnScrollLog?.({ currentTarget: scroll });
+            };
+
+            const cleanup = () => {
+                cancelled = true;
+                for (const timeout of timeouts) window.clearTimeout(timeout);
+                observer?.disconnect();
+                for (const [target, type] of stopEvents) target.removeEventListener(type, cleanup);
+                window.removeEventListener("keydown", cancelKeyboardScroll);
+            };
+
+            const cancelKeyboardScroll = (event) => {
+                if (scrollKeys.has(event.key)) cleanup();
+            };
+
+            for (const [target, type] of stopEvents) {
+                target.addEventListener(type, cleanup, { once: true, passive: true });
+            }
+            window.addEventListener("keydown", cancelKeyboardScroll, { passive: true });
+            for (const delay of [0, 50, 150, 300, 600]) {
+                timeouts.push(window.setTimeout(keepPinned, delay));
+            }
+
+            if (typeof ResizeObserver !== "undefined" && messageElement instanceof HTMLElement) {
+                observer = new ResizeObserver(keepPinned);
+                observer.observe(messageElement);
+            }
+
+            timeouts.push(window.setTimeout(cleanup, 1000));
+        };
+
         ChatLog.prototype._ccsPostOne = async function (message, { before, notify = false } = {}) {
             if (!this.rendered) return;
             message.logged = true;
@@ -130,7 +189,7 @@ export class ChatOptimizer {
                 existing.insertAdjacentElement("beforebegin", html);
             } else {
                 log.append(html);
-                if (this.isAtBottom || message.author._id === game.user._id) this.scrollBottom({ waitImages: true });
+                if (this.isAtBottom || message.author._id === game.user._id) this._ccsKeepBottomPinned(html);
             }
 
             if (notify) this.notify(message, { existing: html, newMessage: true });
