@@ -140,7 +140,10 @@
     margin-right: 8px;
     flex: 0 0 auto;
     overflow: hidden;
-    transition: all 0.2s ease;
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        filter 0.2s ease;
     width: var(--portrait-size);
     height: var(--portrait-size);
 }
@@ -263,7 +266,9 @@
     cursor: pointer;
 }
 
-.message-header {
+body:not(.system-dnd5e)
+.chat-message.ccs-custom-border
+> .message-header:not(.with-image) {
     display: flex;
     align-items: center;
     padding: 5px;
@@ -271,14 +276,51 @@
 }
 
 body.system-pf2e .chat-message .message-header.with-image,
-.chat-message .message-header.with-image {
+body.system-sf2e .chat-message .message-header.with-image {
     display: grid;
 }
 
 body.system-pf2e .chat-message .message-header.with-image .chat-portrait-container,
-.chat-message .message-header.with-image .chat-portrait-container {
+body.system-sf2e .chat-message .message-header.with-image .chat-portrait-container {
     grid-area: img;
     margin-right: 0;
+}
+
+body.system-dnd5e
+.chat-message.dnd5e2
+.message-sender
+> .chat-portrait-container,
+body.system-dnd5e
+.chat-message.dnd5e2
+.message-sender
+> .ccs-portrait-host {
+    margin-inline-end: 0;
+}
+
+body.system-dnd5e
+.chat-message.dnd5e2
+.message-sender
+> a.avatar.ccs-portrait-host {
+    width: auto !important;
+    height: auto !important;
+    flex: 0 0 auto;
+}
+
+body.system-dnd5e
+.chat-message.dnd5e2
+.message-sender
+.ccs-portrait-host
+> .chat-portrait-container {
+    margin: 0;
+}
+
+body.system-dnd5e
+.chat-message.dnd5e2
+.message-sender
+.ccs-portrait-host
+img.chat-portrait {
+    width: 100% !important;
+    height: 100% !important;
 }
 
 .chat-portrait-container img {

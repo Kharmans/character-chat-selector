@@ -140,8 +140,15 @@ export class ChatSelector {
         });
 
         Hooks.on('renderChatMessageHTML', (message, html, data) => {
+            if (game.system.id === 'dnd5e' && !this._needsLegacyDnd5ePortraitFallback(message)) return;
             this._addPortraitToMessage(message, html, data);
         });
+
+        if (game.system.id === 'dnd5e') {
+            Hooks.on('dnd5e.renderChatMessage', (message, html) => {
+                this._addPortraitToMessage(message, html, undefined, { scheduleFallback: false });
+            });
+        }
 
         HpTintEffect.initialize();
         HpTintEffect.injectStyles();
@@ -157,6 +164,17 @@ export class ChatSelector {
         RubyTextHandler.initialize();
 
         this.tempCharacter = null;
+    }
+
+    /**
+     * D&D5e versions before 5.3 can return typed chat messages before firing
+     * dnd5e.renderChatMessage. Keep the old post-render fallback only for
+     * those messages; all other D&D5e messages use the final system hook.
+     */
+    static _needsLegacyDnd5ePortraitFallback(message) {
+        const systemVersion = game.system.version ?? '0';
+        const isBefore53 = foundry.utils.isNewerVersion('5.3.0', systemVersion);
+        return isBefore53 && typeof message.system?.getHTML === 'function';
     }
 
     // 통합 선택 로직
@@ -593,10 +611,6 @@ export class ChatSelector {
             selector.style.removeProperty('opacity');
             selector.style.removeProperty('pointer-events');
 
-            setTimeout(() => {
-                if (ui.chat) ui.chat.scrollBottom();
-            }, 50);
-
         } else {
             selector.style.setProperty('display', 'none', 'important');
         }
@@ -963,7 +977,7 @@ export class ChatSelector {
         return tokenImg;
     }
 
-    static _addPortraitToMessage(message, html, data) {
+    static _addPortraitToMessage(message, html, data, { scheduleFallback = true } = {}) {
         if (!game.settings.get('character-chat-selector', this.SETTINGS.SHOW_PORTRAIT)) return;
 
         const CHAT_STYLES = CONST.CHAT_MESSAGE_STYLES;
@@ -986,15 +1000,11 @@ export class ChatSelector {
         const header = messageElement.querySelector('.message-header');
         if (!header) return;
 
-        const chatLog = document.getElementById('chat-log');
-        const shouldScrollToBottom = message.isAuthor || 
-            (chatLog && (chatLog.scrollHeight - chatLog.scrollTop - chatLog.clientHeight < 50));
-
         const portraitContainer = this._createPortraitElement(message, imgSrc);
 
         const findSystemPortrait = () => {
             const selectors = [
-                'a.avatar:not(.chat-portrait-container)',
+                'a.avatar:not(.ccs-portrait-host):not(.chat-portrait-container)',
                 '.portrait.token:not(.chat-portrait-container)',
                 '.portrait.actor-image:not(.chat-portrait-container)',
                 '.message-token:not(.chat-portrait-container)',
@@ -1003,10 +1013,20 @@ export class ChatSelector {
 
             for (const selector of selectors) {
                 const candidate = header.querySelector(selector);
-                if (candidate) return candidate;
+                if (candidate && !candidate.querySelector?.('.chat-portrait-container')) return candidate;
             }
 
             return null;
+        };
+
+        const mountPortrait = (existingAvatar) => {
+            if (game.system.id === 'dnd5e' && existingAvatar?.matches?.('a.avatar')) {
+                existingAvatar.classList.add('ccs-portrait-host');
+                existingAvatar.replaceChildren(portraitContainer);
+                return;
+            }
+
+            existingAvatar.replaceWith(portraitContainer);
         };
 
         const injectPortrait = () => {
@@ -1018,7 +1038,7 @@ export class ChatSelector {
             const senderEl = header.querySelector('.message-sender');
 
             if (existingAvatar) {
-                existingAvatar.replaceWith(portraitContainer);
+                mountPortrait(existingAvatar);
             } else if (senderEl) {
                 senderEl.prepend(portraitContainer);
             } else {
@@ -1030,15 +1050,13 @@ export class ChatSelector {
 
         injectPortrait();
 
+        if (!scheduleFallback) return;
+
         setTimeout(() => {
             const foundryAvatar = findSystemPortrait();
             if (foundryAvatar) {
-                foundryAvatar.replaceWith(portraitContainer);
+                mountPortrait(foundryAvatar);
                 this._applyCommonStyles(messageElement, message, portraitContainer);
-            }
-            
-            if (shouldScrollToBottom && ui.chat?.scrollBottom) {
-                ui.chat.scrollBottom({ waitImages: true });
             }
         }, 0);
     }
@@ -1114,7 +1132,9 @@ export class ChatSelector {
             portraitContainer.style.setProperty('--glow-strength', '0px');
         }
 
-        portraitContainer.addEventListener('click', async () => {
+        portraitContainer.addEventListener('click', async (event) => {
+            event.preventDefault();
+            event.stopPropagation();
             const speaker = message.speaker;
             let sheet = null;
             if (speakAsToken) {

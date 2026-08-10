@@ -1,3 +1,5 @@
+import { ChatScrollKeeper } from './chatScrollKeeper.js';
+
 /**
  * Chat Optimizer for Character Chat Selector
  * Based on the less-chat module by Trent Piepho (© 2025)
@@ -50,7 +52,8 @@ export class ChatOptimizer {
             const max = game.settings.get(self.ID, self.SETTINGS.MAX_MESSAGES);
             if (!log || log.childElementCount <= max) return;
 
-            if (!this.isAtBottom) {
+            const keeperFollowing = ChatScrollKeeper.isFollowing(this);
+            if (!(keeperFollowing ?? this.isAtBottom)) {
                 this.schedulePrune(1000);
                 return;
             }
@@ -105,71 +108,9 @@ export class ChatOptimizer {
             }
         };
 
-        ChatLog.prototype.__attachLogListeners = ChatLog.prototype._attachLogListeners;
-        ChatLog.prototype.__onClose = ChatLog.prototype._onClose;
-
         ChatLog.prototype.postOne = async function (message, options = {}) {
             if (!message.visible) return;
             return this.renderingQueue.add(this._ccsPostOne.bind(this), message, options);
-        };
-
-        ChatLog.prototype._ccsKeepBottomPinned = function (messageElement) {
-            const scroll = this.element?.querySelector(".chat-scroll");
-            if (!scroll) {
-                this.scrollBottom({ waitImages: true });
-                return;
-            }
-
-            const isDndCard = game.system.id === "dnd5e" ||
-                messageElement?.classList?.contains("dnd5e2") ||
-                messageElement?.querySelector?.(".dnd5e2, .card-tray, .effects-tray, .targets-tray");
-            if (!isDndCard) {
-                this.scrollBottom({ waitImages: true });
-                return;
-            }
-
-            const timeouts = [];
-            let cancelled = false;
-            let observer = null;
-            const stopEvents = [
-                [scroll, "wheel"],
-                [scroll, "touchmove"],
-                [scroll, "pointerdown"]
-            ];
-            const scrollKeys = new Set(["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "]);
-
-            const keepPinned = () => {
-                if (cancelled || !this.rendered) return;
-                scroll.scrollTop = scroll.scrollHeight;
-                this._ccsOnScrollLog?.({ currentTarget: scroll });
-            };
-
-            const cleanup = () => {
-                cancelled = true;
-                for (const timeout of timeouts) window.clearTimeout(timeout);
-                observer?.disconnect();
-                for (const [target, type] of stopEvents) target.removeEventListener(type, cleanup);
-                window.removeEventListener("keydown", cancelKeyboardScroll);
-            };
-
-            const cancelKeyboardScroll = (event) => {
-                if (scrollKeys.has(event.key)) cleanup();
-            };
-
-            for (const [target, type] of stopEvents) {
-                target.addEventListener(type, cleanup, { once: true, passive: true });
-            }
-            window.addEventListener("keydown", cancelKeyboardScroll, { passive: true });
-            for (const delay of [0, 50, 150, 300, 600]) {
-                timeouts.push(window.setTimeout(keepPinned, delay));
-            }
-
-            if (typeof ResizeObserver !== "undefined" && messageElement instanceof HTMLElement) {
-                observer = new ResizeObserver(keepPinned);
-                observer.observe(messageElement);
-            }
-
-            timeouts.push(window.setTimeout(cleanup, 1000));
         };
 
         ChatLog.prototype._ccsPostOne = async function (message, { before, notify = false } = {}) {
@@ -188,8 +129,12 @@ export class ChatOptimizer {
             if (existing) {
                 existing.insertAdjacentElement("beforebegin", html);
             } else {
+                const keeperFollowing = ChatScrollKeeper.isFollowing(this);
+                const keepBottom = keeperFollowing ?? this.isAtBottom;
                 log.append(html);
-                if (this.isAtBottom || message.author._id === game.user._id) this._ccsKeepBottomPinned(html);
+                if (keepBottom && !ChatScrollKeeper.requestPin(this, { force: true })) {
+                    this.scrollBottom({ waitImages: true });
+                }
             }
 
             if (notify) this.notify(message, { existing: html, newMessage: true });
@@ -271,7 +216,6 @@ export class ChatOptimizer {
                 ).finished.then(() => {
                     li.remove();
                     this.scheduleExpand();
-                    this._ccsOnScrollLog();
                 });
 
                 if (!this.isPopout) {
@@ -333,33 +277,12 @@ export class ChatOptimizer {
             existing.className = replacement.className;
         };
 
-        ChatLog.prototype._ccsOnScrollLog = function (event) {
-            if (!this.rendered) return;
-            if (!this._jumpToBottomElement) this._jumpToBottomElement = this.element.querySelector(".jump-to-bottom");
-
-            const log = event?.currentTarget ?? this.element.querySelector(".chat-scroll");
-            this.isAtBottom = log.scrollHeight - log.clientHeight - log.scrollTop < 2;
-            if (!this.isAtBottom && log.scrollTop < 100) {
-                this.renderBatch(CONFIG.ChatMessage.batchSize);
-            }
-            log.classList.toggle("scrolled", !this.isAtBottom);
-            this._jumpToBottomElement?.toggleAttribute("hidden", this.isAtBottom);
-        };
-
-        ChatLog.prototype._attachLogListeners = function (element, options) {
-            const elementWrapper = {
-                addEventListener: (e, f, o) => {
-                    if (e !== "scroll") element.addEventListener(e, f, o);
-                },
-            };
-            element.addEventListener("scroll", this._ccsOnScrollLog.bind(this), { passive: true });
-            this.__attachLogListeners(elementWrapper, options);
-        };
-
-        ChatLog.prototype._onClose = function (options) {
-            this.__onClose(options);
-            this._lastId = null;
-        };
+        Hooks.on("closeApplicationV2", (app) => {
+            if (!(app instanceof ChatLog)) return;
+            app._lastId = null;
+            if (app._ccsPruneTimeout) window.clearTimeout(app._ccsPruneTimeout);
+            if (app._ccsExpandTimeout) window.clearTimeout(app._ccsExpandTimeout);
+        });
 
         Object.defineProperty(ChatLog.prototype, "renderingBatch", { value: false, writable: true, enumerable: true });
         Object.defineProperty(ChatLog.prototype, "renderingQueue", {
@@ -378,6 +301,5 @@ export class ChatOptimizer {
                 );
             },
         });
-        Object.defineProperty(ChatLog.prototype, "isAtBottom", { value: true, writable: true, enumerable: true });
     }
 }

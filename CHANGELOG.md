@@ -1,3 +1,22 @@
+## 📢 Update: Character Chat Selector v3.5.1
+
+### 🐛 Bug Fixes
+- Fixed the remaining D&D5e portrait flicker when Polyglot refreshes existing chat messages after token or actor changes.
+- CCS portraits are now applied after D&D5e finishes rendering each chat card, preventing the default square avatar from briefly appearing before the configured portrait.
+- Kept the compatibility fallback for older D&D5e typed chat cards and limited D&D-specific avatar wrapper handling to D&D5e.
+
+## 📢 Update: Character Chat Selector v3.5.0
+
+### Changed
+- Reworked chat bottom tracking to use one observer for the chat log instead of repeated timers on individual messages.
+- Restored Foundry's native chat scroll state and listeners to reduce conflicts with system and module rendering.
+
+### 🐛 Bug Fixes
+- Fixed intermittent bottom tracking while D&D5e cards finish rendering.
+- Fixed chat flicker and delayed jumps caused by repeated scroll corrections.
+- Scrolling upward now keeps the current reading position when new messages arrive or are sent. Bottom tracking resumes after returning to the bottom.
+- Preserved D&D5e's avatar wrapper and narrowed header and portrait CSS rules to prevent layout conflicts.
+
 ## 📢 Update: Character Chat Selector v3.4.12
 
 ### 🐛 Bug Fixes

@@ -3,6 +3,7 @@ import { HotkeyManager } from './hotkeyManager.js';
 import { ChatEditor } from './chatEditor.js'; 
 import { ChatAutocomplete } from './chatAutocomplete.js';
 import { ChatOptimizer } from './chatOptimizer.js';
+import { ChatScrollKeeper } from './chatScrollKeeper.js';
 import { ChatNotification } from './chatNotification.js'; 
 Hooks.once('init', () => {
     console.log('Character Chat Selector: Initializing...');
@@ -10,6 +11,7 @@ Hooks.once('init', () => {
     HotkeyManager.initialize();
     ChatEditor.initialize(); 
     ChatAutocomplete.initialize();
+    ChatScrollKeeper.initialize();
     ChatOptimizer.initialize();    
     ChatNotification.initialize();
 });
